@@ -1,0 +1,40 @@
+version: '3'
+
+tasks:
+  build:
+    desc: "Compile ATtiny85 sketch"
+    cmds:
+      - platformio run -e attiny85
+
+  upload:
+    desc: "Upload to ATtiny85 via USBasp"
+    cmds:
+      - platformio run -e attiny85 -t upload
+
+  monitor:
+    desc: "Serial monitor (if applicable)"
+    cmds:
+      - platformio device monitor
+
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - platformio run -e attiny85 -t clean
+
+  freq-test:
+    desc: "Build and upload frequency test sketch"
+    cmds:
+      - task: build
+      - task: upload
+
+  fuses:
+    desc: "Set fuses (Reset as GPIO)"
+    cmds:
+      - avrdude -c usbasp -p t85 -U lfuse:w:0xe2:m -U hfuse:w:0xd7:m
+
+  full:
+    desc: "Clean build and upload"
+    cmds:
+      - task: clean
+      - task: build
+      - task: upload
