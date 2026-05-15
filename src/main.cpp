@@ -47,6 +47,7 @@ void update_buttons()
   if (left == LOW && last_left_state == HIGH &&
       millis() - last_left_press > DEBOUNCE_TIME)
   {
+    Serial.println("Toggling Left");
     toggle_state(LEFT);
     last_left_press = millis();
   }
@@ -55,6 +56,7 @@ void update_buttons()
   if (right == LOW && last_right_state == HIGH &&
       millis() - last_right_press > DEBOUNCE_TIME)
   {
+    Serial.println("Toggling Right");
     toggle_state(RIGHT);
     last_right_press = millis();
   }
