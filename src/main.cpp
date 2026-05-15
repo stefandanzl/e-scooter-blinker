@@ -15,17 +15,52 @@ unsigned long last_right_press = 0;
 unsigned long last_blink = 0;
 const unsigned long DEBOUNCE_TIME = 50;
 
+enum BlinkState
+{
+  OFF,
+  LEFT,
+  RIGHT
+};
+BlinkState current_state = OFF;
+
+void update_blink_state()
+{
+  int left = digitalRead(SWITCH_LEFT);
+  int right = digitalRead(SWITCH_RIGHT);
+
+  // Toggle Left
+  if (left == LOW && millis() - last_left_press > DEBOUNCE_TIME)
+  {
+    current_state = (current_state == LEFT) ? OFF : LEFT;
+    digitalWrite(TRANSISTOR_RIGHT, LOW);
+    last_left_press = millis();
+  }
+
+  // Toggle Right
+  if (right == LOW && millis() - last_right_press > DEBOUNCE_TIME)
+  {
+    current_state = (current_state == RIGHT) ? OFF : RIGHT;
+    digitalWrite(TRANSISTOR_LEFT, LOW);
+    last_right_press = millis();
+  }
+}
+
 void blink()
 {
   if (millis() - last_blink >= BLINK_INTERVAL)
   {
-    if (left_blink)
+    if (current_state == LEFT)
     {
       digitalWrite(TRANSISTOR_LEFT, !digitalRead(TRANSISTOR_LEFT));
     }
-    if (right_blink)
+    else if (current_state == RIGHT)
     {
       digitalWrite(TRANSISTOR_RIGHT, !digitalRead(TRANSISTOR_RIGHT));
+    }
+    else
+    {
+      digitalWrite(TRANSISTOR_LEFT, LOW);
+      digitalWrite(TRANSISTOR_RIGHT, LOW);
     }
     last_blink = millis();
   }
@@ -49,29 +84,7 @@ void setup()
 
 void loop()
 {
-  int left = digitalRead(SWITCH_LEFT);
-  int right = digitalRead(SWITCH_RIGHT);
-
-  // Toggle Left
-  if (left == LOW && millis() - last_left_press > DEBOUNCE_TIME)
-  {
-    left_blink = !left_blink;
-    right_blink = false;
-    digitalWrite(TRANSISTOR_LEFT, LOW);
-    digitalWrite(TRANSISTOR_RIGHT, LOW);
-    last_left_press = millis();
-  }
-
-  // Toggle Right
-  if (right == LOW && millis() - last_right_press > DEBOUNCE_TIME)
-  {
-    right_blink = !right_blink;
-    left_blink = false;
-    digitalWrite(TRANSISTOR_LEFT, LOW);
-    digitalWrite(TRANSISTOR_RIGHT, LOW);
-    last_right_press = millis();
-  }
-
+  update_blink_state();
   blink();
   delay(10);
 }
