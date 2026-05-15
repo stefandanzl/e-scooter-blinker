@@ -1,8 +1,10 @@
 #include <Arduino.h>
 
 #define PWM_PIN 10
-#define SWITCH_LEFT 3
-#define SWITCH_RIGHT 4
+#define SWITCH_LEFT 22
+// #define SWITCH_LEFT 3
+#define SWITCH_RIGHT 21
+// #define SWITCH_RIGHT 4
 #define TRANSISTOR_LEFT 7
 #define TRANSISTOR_RIGHT 8
 
@@ -16,6 +18,23 @@ enum BlinkState
   RIGHT
 };
 
+String printState(BlinkState current_state)
+{
+  if (current_state == OFF)
+  {
+    return "OFF";
+  }
+  if (current_state == LEFT)
+  {
+    return "LEFT";
+  }
+  if (current_state == RIGHT)
+  {
+    return "RIGHT";
+  }
+  return "ERROR";
+}
+
 BlinkState current_state = OFF;
 bool blink_on = false;
 unsigned long last_blink = 0;
@@ -24,18 +43,27 @@ unsigned long last_right_press = 0;
 int last_left_state = HIGH;
 int last_right_state = HIGH;
 
-void set_outputs()
+void set_outputs(bool doBlink)
 {
-  digitalWrite(TRANSISTOR_LEFT, (current_state == LEFT && blink_on) ? HIGH : LOW);
-  digitalWrite(TRANSISTOR_RIGHT, (current_state == RIGHT && blink_on) ? HIGH : LOW);
+  if (doBlink)
+  {
+    analogWrite(PWM_PIN, 255);
+  }
+  else
+  {
+    analogWrite(PWM_PIN, 0);
+  }
+
+  Serial.println("Current State:" + printState(current_state));
+  digitalWrite(TRANSISTOR_LEFT, (current_state == LEFT && doBlink) ? HIGH : LOW);
+  digitalWrite(TRANSISTOR_RIGHT, (current_state == RIGHT && doBlink) ? HIGH : LOW);
 }
 
 void toggle_state(BlinkState target)
 {
   current_state = (current_state == target) ? OFF : target;
-  blink_on = (current_state != OFF); // sofort an bei Aktivierung
   last_blink = millis();
-  set_outputs();
+  set_outputs(current_state != OFF);
 }
 
 void update_buttons()
@@ -70,9 +98,15 @@ void update_blink()
 
   if (millis() - last_blink >= BLINK_INTERVAL)
   {
-    blink_on = !blink_on;
+    Serial.println("Blinking" + printState(current_state));
+    // last_blink = millis();
+    set_outputs(false);
+  }
+  if (millis() - last_blink >= BLINK_INTERVAL * 2)
+  {
+    Serial.println("Blinking" + printState(current_state));
     last_blink = millis();
-    set_outputs();
+    set_outputs(true);
   }
 }
 
@@ -87,7 +121,7 @@ void setup()
   // Boost-Converter 3.3V -> 12V
   analogWriteFreq(50000);
   analogWriteRange(255);
-  analogWrite(PWM_PIN, 250);
+  analogWrite(PWM_PIN, 0);
 
   digitalWrite(TRANSISTOR_LEFT, LOW);
   digitalWrite(TRANSISTOR_RIGHT, LOW);
