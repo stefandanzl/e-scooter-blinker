@@ -6,14 +6,8 @@
 #define TRANSISTOR_LEFT 7
 #define TRANSISTOR_RIGHT 8
 
-#define BLINK_INTERVAL 500 // 500ms = 0,5s Frequenz
-
-bool left_blink = false;
-bool right_blink = false;
-unsigned long last_left_press = 0;
-unsigned long last_right_press = 0;
-unsigned long last_blink = 0;
-const unsigned long DEBOUNCE_TIME = 50;
+#define BLINK_INTERVAL 500
+#define DEBOUNCE_TIME 50
 
 enum BlinkState
 {
@@ -21,48 +15,62 @@ enum BlinkState
   LEFT,
   RIGHT
 };
-BlinkState current_state = OFF;
 
-void update_blink_state()
+BlinkState current_state = OFF;
+bool blink_on = false;
+unsigned long last_blink = 0;
+unsigned long last_left_press = 0;
+unsigned long last_right_press = 0;
+int last_left_state = HIGH;
+int last_right_state = HIGH;
+
+void set_outputs()
+{
+  digitalWrite(TRANSISTOR_LEFT, (current_state == LEFT && blink_on) ? HIGH : LOW);
+  digitalWrite(TRANSISTOR_RIGHT, (current_state == RIGHT && blink_on) ? HIGH : LOW);
+}
+
+void toggle_state(BlinkState target)
+{
+  current_state = (current_state == target) ? OFF : target;
+  blink_on = (current_state != OFF); // sofort an bei Aktivierung
+  last_blink = millis();
+  set_outputs();
+}
+
+void update_buttons()
 {
   int left = digitalRead(SWITCH_LEFT);
   int right = digitalRead(SWITCH_RIGHT);
 
-  // Toggle Left
-  if (left == LOW && millis() - last_left_press > DEBOUNCE_TIME)
+  // Falling-Edge HIGH -> LOW = Tastendruck
+  if (left == LOW && last_left_state == HIGH &&
+      millis() - last_left_press > DEBOUNCE_TIME)
   {
-    current_state = (current_state == LEFT) ? OFF : LEFT;
-    digitalWrite(TRANSISTOR_RIGHT, LOW);
+    toggle_state(LEFT);
     last_left_press = millis();
   }
+  last_left_state = left;
 
-  // Toggle Right
-  if (right == LOW && millis() - last_right_press > DEBOUNCE_TIME)
+  if (right == LOW && last_right_state == HIGH &&
+      millis() - last_right_press > DEBOUNCE_TIME)
   {
-    current_state = (current_state == RIGHT) ? OFF : RIGHT;
-    digitalWrite(TRANSISTOR_LEFT, LOW);
+    toggle_state(RIGHT);
     last_right_press = millis();
   }
+  last_right_state = right;
 }
 
-void blink()
+void update_blink()
 {
+  if (current_state == OFF)
+    return;
+
   if (millis() - last_blink >= BLINK_INTERVAL)
   {
-    if (current_state == LEFT)
-    {
-      digitalWrite(TRANSISTOR_LEFT, !digitalRead(TRANSISTOR_LEFT));
-    }
-    else if (current_state == RIGHT)
-    {
-      digitalWrite(TRANSISTOR_RIGHT, !digitalRead(TRANSISTOR_RIGHT));
-    }
-    else
-    {
-      digitalWrite(TRANSISTOR_LEFT, LOW);
-      digitalWrite(TRANSISTOR_RIGHT, LOW);
-    }
+    blink_on = !blink_on;
     last_blink = millis();
+    set_outputs();
   }
 }
 
@@ -74,6 +82,7 @@ void setup()
   pinMode(TRANSISTOR_RIGHT, OUTPUT);
   pinMode(PWM_PIN, OUTPUT);
 
+  // Boost-Converter 3.3V -> 12V
   analogWriteFreq(50000);
   analogWriteRange(255);
   analogWrite(PWM_PIN, 250);
@@ -84,7 +93,7 @@ void setup()
 
 void loop()
 {
-  update_blink_state();
-  blink();
+  update_buttons();
+  update_blink();
   delay(10);
 }
