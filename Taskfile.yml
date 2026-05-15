@@ -1,15 +1,23 @@
-version: '3'
+version: "3"
 
 tasks:
+  default:
+    cmds:
+      - task: upload
+
   build:
     desc: "Compile ATtiny85 sketch"
     cmds:
-      - platformio run -e attiny85
+      - pio run -d .
+      # - platformio run -e attiny85
 
   upload:
     desc: "Upload to ATtiny85 via USBasp"
     cmds:
-      - platformio run -e attiny85 -t upload
+      - pio run -t upload
+      # - pio run upload
+      # - ~/.platformio/penv/Scripts/platformio.exe run --target upload --upload-port COM9
+      # - platformio run -e attiny85 -t upload
 
   monitor:
     desc: "Serial monitor (if applicable)"
