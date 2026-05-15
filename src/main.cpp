@@ -1,51 +1,77 @@
 #include <Arduino.h>
-#include <SoftwareSerial.h>
-#include <string.h>
-// #include <time.h>
-#include <TinySoftwareSerial.h>
 
-soft_ring_buffer buffer;
+#define PWM_PIN 10
+#define SWITCH_LEFT 3
+#define SWITCH_RIGHT 4
+#define TRANSISTOR_LEFT 7
+#define TRANSISTOR_RIGHT 8
 
-// TinySoftwareSerial mySerial(&buffer, 2, 1); // RX, TX
-SoftwareSerial mySerial(2, 1); // RX, TX
+#define BLINK_INTERVAL 500 // 500ms = 0,5s Frequenz
 
-unsigned long last_time = 0;
-unsigned long INTERVAL = 1000; // 1 Sekunde
-unsigned long BREAKER = 2;
-unsigned long counter = 0;
+bool left_blink = false;
+bool right_blink = false;
+unsigned long last_left_press = 0;
+unsigned long last_right_press = 0;
+unsigned long last_blink = 0;
+const unsigned long DEBOUNCE_TIME = 50;
+
+void blink()
+{
+  if (millis() - last_blink >= BLINK_INTERVAL)
+  {
+    if (left_blink)
+    {
+      digitalWrite(TRANSISTOR_LEFT, !digitalRead(TRANSISTOR_LEFT));
+    }
+    if (right_blink)
+    {
+      digitalWrite(TRANSISTOR_RIGHT, !digitalRead(TRANSISTOR_RIGHT));
+    }
+    last_blink = millis();
+  }
+}
 
 void setup()
 {
-  mySerial.begin(9600);
+  pinMode(SWITCH_LEFT, INPUT_PULLUP);
+  pinMode(SWITCH_RIGHT, INPUT_PULLUP);
+  pinMode(TRANSISTOR_LEFT, OUTPUT);
+  pinMode(TRANSISTOR_RIGHT, OUTPUT);
+  pinMode(PWM_PIN, OUTPUT);
+
+  analogWriteFreq(50000);
+  analogWriteRange(255);
+  analogWrite(PWM_PIN, 250);
+
+  digitalWrite(TRANSISTOR_LEFT, LOW);
+  digitalWrite(TRANSISTOR_RIGHT, LOW);
 }
 
 void loop()
 {
-  if (mySerial.available())
-  {
-    char c = mySerial.read();
+  int left = digitalRead(SWITCH_LEFT);
+  int right = digitalRead(SWITCH_RIGHT);
 
-    if (c == '+')
-    {
-      INTERVAL += 100; // +100ms
-      mySerial.print("Interval: ");
-      mySerial.println(INTERVAL);
-    }
-    else if (c == '-')
-    {
-      if (INTERVAL > 100)
-      {                  // Min 100ms
-        INTERVAL -= 100; // -100ms
-      }
-      mySerial.print("Interval: ");
-      mySerial.println(INTERVAL);
-    }
+  // Toggle Left
+  if (left == LOW && millis() - last_left_press > DEBOUNCE_TIME)
+  {
+    left_blink = !left_blink;
+    right_blink = false;
+    digitalWrite(TRANSISTOR_LEFT, LOW);
+    digitalWrite(TRANSISTOR_RIGHT, LOW);
+    last_left_press = millis();
   }
 
-  unsigned long currentTime = millis();
-  if (currentTime - last_time >= INTERVAL)
+  // Toggle Right
+  if (right == LOW && millis() - last_right_press > DEBOUNCE_TIME)
   {
-    mySerial.println("Hello!");
-    last_time = currentTime;
+    right_blink = !right_blink;
+    left_blink = false;
+    digitalWrite(TRANSISTOR_LEFT, LOW);
+    digitalWrite(TRANSISTOR_RIGHT, LOW);
+    last_right_press = millis();
   }
+
+  blink();
+  delay(10);
 }
