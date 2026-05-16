@@ -1,17 +1,13 @@
 #include <Arduino.h>
 
 #define BOOSTER 10
-// #define SWITCH_LEFT 22
-#define SWITCH_LEFT 4
-// #define SWITCH_LEFT 14
-// #define SWITCH_RIGHT 21
-// #define SWITCH_RIGHT 5
-#define SWITCH_RIGHT 14
-#define TRANSISTOR_LEFT 7
+#define SWITCH_LEFT 7
+#define SWITCH_RIGHT 6
+#define TRANSISTOR_LEFT 9
 #define TRANSISTOR_RIGHT 8
 
 #define BLINK_INTERVAL 500
-#define DEBOUNCE_TIME 50
+#define HOLD_TIME 300 // Wie lange Taster gehalten werden muss bis Toggle ausgelöst wird
 
 enum BlinkState
 {
@@ -20,43 +16,30 @@ enum BlinkState
   RIGHT
 };
 
-String printState(BlinkState current_state)
+String printState(BlinkState s)
 {
-  if (current_state == OFF)
-  {
+  if (s == OFF)
     return "OFF";
-  }
-  if (current_state == LEFT)
-  {
+  if (s == LEFT)
     return "LEFT";
-  }
-  if (current_state == RIGHT)
-  {
+  if (s == RIGHT)
     return "RIGHT";
-  }
   return "ERROR";
 }
 
 BlinkState current_state = OFF;
 bool blink_on = false;
 unsigned long last_blink = 0;
-unsigned long last_left_press = 0;
-unsigned long last_right_press = 0;
-int last_left_state = HIGH;
-int last_right_state = HIGH;
+
+// Hold-Detection: wann ging der Pin zuletzt auf LOW + ob Toggle für diesen Druck schon registriert wurde
+unsigned long left_low_since = 0;
+unsigned long right_low_since = 0;
+bool left_handled = false;
+bool right_handled = false;
 
 void set_outputs(bool doBlink)
 {
-  if (doBlink)
-  {
-    digitalWrite(BOOSTER, HIGH);
-  }
-  else
-  {
-    digitalWrite(BOOSTER, LOW);
-  }
-
-  Serial.println("Current State:" + printState(current_state));
+  digitalWrite(BOOSTER, doBlink ? HIGH : LOW);
   digitalWrite(TRANSISTOR_LEFT, (current_state == LEFT && doBlink) ? HIGH : LOW);
   digitalWrite(TRANSISTOR_RIGHT, (current_state == RIGHT && doBlink) ? HIGH : LOW);
 }
@@ -64,8 +47,9 @@ void set_outputs(bool doBlink)
 void toggle_state(BlinkState target)
 {
   current_state = (current_state == target) ? OFF : target;
+  blink_on = (current_state != OFF);
   last_blink = millis();
-  set_outputs(current_state != OFF);
+  set_outputs(blink_on);
 }
 
 void update_buttons()
@@ -73,24 +57,46 @@ void update_buttons()
   int left = digitalRead(SWITCH_LEFT);
   int right = digitalRead(SWITCH_RIGHT);
 
-  // Falling-Edge HIGH -> LOW = Tastendruck
-  if (left == LOW && last_left_state == HIGH &&
-      millis() - last_left_press > DEBOUNCE_TIME)
+  // --- LEFT ---
+  if (left == LOW)
   {
-    Serial.println("Toggling Left");
-    toggle_state(LEFT);
-    last_left_press = millis();
+    if (left_low_since == 0)
+    {
+      left_low_since = millis(); // Pin gerade auf LOW gewechselt
+    }
+    else if (!left_handled && millis() - left_low_since >= HOLD_TIME)
+    {
+      Serial.println("Toggle Left (after hold)");
+      toggle_state(LEFT);
+      left_handled = true; // Verhindert Wiederauslösen während noch gehalten wird
+    }
   }
-  last_left_state = left;
+  else
+  {
+    // Pin ist HIGH → Reset
+    left_low_since = 0;
+    left_handled = false;
+  }
 
-  if (right == LOW && last_right_state == HIGH &&
-      millis() - last_right_press > DEBOUNCE_TIME)
+  // --- RIGHT ---
+  if (right == LOW)
   {
-    Serial.println("Toggling Right");
-    toggle_state(RIGHT);
-    last_right_press = millis();
+    if (right_low_since == 0)
+    {
+      right_low_since = millis();
+    }
+    else if (!right_handled && millis() - right_low_since >= HOLD_TIME)
+    {
+      Serial.println("Toggle Right (after hold)");
+      toggle_state(RIGHT);
+      right_handled = true;
+    }
   }
-  last_right_state = right;
+  else
+  {
+    right_low_since = 0;
+    right_handled = false;
+  }
 }
 
 void update_blink()
@@ -100,15 +106,9 @@ void update_blink()
 
   if (millis() - last_blink >= BLINK_INTERVAL)
   {
-    Serial.println("Blinking" + printState(current_state));
-    // last_blink = millis();
-    set_outputs(false);
-  }
-  if (millis() - last_blink >= BLINK_INTERVAL * 2)
-  {
-    Serial.println("Blinking" + printState(current_state));
+    blink_on = !blink_on;
     last_blink = millis();
-    set_outputs(true);
+    set_outputs(blink_on);
   }
 }
 
@@ -120,12 +120,11 @@ void setup()
   pinMode(TRANSISTOR_RIGHT, OUTPUT);
   pinMode(BOOSTER, OUTPUT);
 
-  // Boost-Converter 3.3V -> 12V
-
   digitalWrite(BOOSTER, LOW);
-
   digitalWrite(TRANSISTOR_LEFT, LOW);
   digitalWrite(TRANSISTOR_RIGHT, LOW);
+
+  Serial.begin(115200);
 }
 
 void loop()
