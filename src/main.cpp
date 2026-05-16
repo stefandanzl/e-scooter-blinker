@@ -7,7 +7,8 @@
 #define TRANSISTOR_RIGHT 8
 
 #define BLINK_INTERVAL 500
-#define HOLD_TIME 300 // Wie lange Taster gehalten werden muss bis Toggle ausgelöst wird
+#define HOLD_TIME 80
+// #define HOLD_TIME 300
 
 enum BlinkState
 {
@@ -31,7 +32,6 @@ BlinkState current_state = OFF;
 bool blink_on = false;
 unsigned long last_blink = 0;
 
-// Hold-Detection: wann ging der Pin zuletzt auf LOW + ob Toggle für diesen Druck schon registriert wurde
 unsigned long left_low_since = 0;
 unsigned long right_low_since = 0;
 bool left_handled = false;
@@ -46,7 +46,14 @@ void set_outputs(bool doBlink)
 
 void toggle_state(BlinkState target)
 {
-  current_state = (current_state == target) ? OFF : target;
+  if (current_state == OFF)
+  {
+    current_state = target; // OFF → Ziel aktivieren
+  }
+  else
+  {
+    current_state = OFF; // Aktiv → cancel (egal welche Taste)
+  }
   blink_on = (current_state != OFF);
   last_blink = millis();
   set_outputs(blink_on);
@@ -57,28 +64,27 @@ void update_buttons()
   int left = digitalRead(SWITCH_LEFT);
   int right = digitalRead(SWITCH_RIGHT);
 
-  // --- LEFT ---
+  // LEFT
   if (left == LOW)
   {
     if (left_low_since == 0)
     {
-      left_low_since = millis(); // Pin gerade auf LOW gewechselt
+      left_low_since = millis();
     }
     else if (!left_handled && millis() - left_low_since >= HOLD_TIME)
     {
-      Serial.println("Toggle Left (after hold)");
+      Serial.println("Toggle Left");
       toggle_state(LEFT);
-      left_handled = true; // Verhindert Wiederauslösen während noch gehalten wird
+      left_handled = true;
     }
   }
   else
   {
-    // Pin ist HIGH → Reset
     left_low_since = 0;
     left_handled = false;
   }
 
-  // --- RIGHT ---
+  // RIGHT
   if (right == LOW)
   {
     if (right_low_since == 0)
@@ -87,7 +93,7 @@ void update_buttons()
     }
     else if (!right_handled && millis() - right_low_since >= HOLD_TIME)
     {
-      Serial.println("Toggle Right (after hold)");
+      Serial.println("Toggle Right");
       toggle_state(RIGHT);
       right_handled = true;
     }
