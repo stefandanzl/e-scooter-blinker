@@ -1,10 +1,12 @@
 #include <Arduino.h>
 
-#define PWM_PIN 10
-#define SWITCH_LEFT 22
-// #define SWITCH_LEFT 3
-#define SWITCH_RIGHT 21
-// #define SWITCH_RIGHT 4
+#define BOOSTER 10
+// #define SWITCH_LEFT 22
+#define SWITCH_LEFT 4
+// #define SWITCH_LEFT 14
+// #define SWITCH_RIGHT 21
+// #define SWITCH_RIGHT 5
+#define SWITCH_RIGHT 14
 #define TRANSISTOR_LEFT 7
 #define TRANSISTOR_RIGHT 8
 
@@ -47,11 +49,11 @@ void set_outputs(bool doBlink)
 {
   if (doBlink)
   {
-    analogWrite(PWM_PIN, 255);
+    digitalWrite(BOOSTER, HIGH);
   }
   else
   {
-    analogWrite(PWM_PIN, 0);
+    digitalWrite(BOOSTER, LOW);
   }
 
   Serial.println("Current State:" + printState(current_state));
@@ -116,12 +118,11 @@ void setup()
   pinMode(SWITCH_RIGHT, INPUT_PULLUP);
   pinMode(TRANSISTOR_LEFT, OUTPUT);
   pinMode(TRANSISTOR_RIGHT, OUTPUT);
-  pinMode(PWM_PIN, OUTPUT);
+  pinMode(BOOSTER, OUTPUT);
 
   // Boost-Converter 3.3V -> 12V
-  analogWriteFreq(50000);
-  analogWriteRange(255);
-  analogWrite(PWM_PIN, 0);
+
+  digitalWrite(BOOSTER, LOW);
 
   digitalWrite(TRANSISTOR_LEFT, LOW);
   digitalWrite(TRANSISTOR_RIGHT, LOW);
